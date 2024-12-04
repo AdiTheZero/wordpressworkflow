@@ -1,4 +1,4 @@
-name: Simple WordPress MySQL Setup
+name: WordPress Docker Setup with MySQL
 
 on:
   push:
@@ -10,35 +10,66 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Set up Docker environment using the official GitHub Action
+      # Step 1: Set up Docker Buildx (Optional, helpful for Docker actions)
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # Step 2: Run MySQL and WordPress containers
-      - name: Set up MySQL and WordPress containers with Docker
+      # Step 2: Install Docker Compose
+      - name: Install Docker Compose
         run: |
-          # Pull MySQL and WordPress images
-          docker pull mysql:8.0
-          docker pull wordpress:latest
+          sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose --version
 
-          # Run MySQL container with root password
-          docker run --name mysql-container -e MYSQL_ROOT_PASSWORD=root_password -d mysql:8.0
-
-          # Run WordPress container, linked to the MySQL container
-          docker run --name wordpress-container --link mysql-container:mysql -p 8080:80 -e WORDPRESS_DB_HOST=mysql:3306 -e WORDPRESS_DB_NAME=wordpress -e WORDPRESS_DB_USER=root -e WORDPRESS_DB_PASSWORD=root_password -d wordpress:latest
-
-      # Step 3: Wait for WordPress to be ready
-      - name: Wait for WordPress to start
+      # Step 3: Create docker-compose.yml for WordPress and MySQL
+      - name: Create docker-compose.yml
         run: |
-          echo "Waiting for WordPress to start..."
-          sleep 30  # Give time for WordPress to initialize
+          echo 'version: "3.1"
+          services:
+            wordpress:
+              image: wordpress:latest
+              ports:
+                - "8080:80"
+              environment:
+                WORDPRESS_DB_HOST: mysql:3306
+                WORDPRESS_DB_NAME: wordpress
+                WORDPRESS_DB_USER: root
+                WORDPRESS_DB_PASSWORD: root_password
+              depends_on:
+                - mysql
 
-      # Step 4: Test if WordPress is accessible
+            mysql:
+              image: mysql:8.0
+              environment:
+                MYSQL_ROOT_PASSWORD: root_password
+              volumes:
+                - mysql_data:/var/lib/mysql
+          volumes:
+            mysql_data: {}' > docker-compose.yml
+
+      # Step 4: Start the containers using Docker Compose
+      - name: Start WordPress and MySQL containers
+        run: |
+          docker-compose up -d
+
+      # Step 5: Wait for WordPress to become available
+      - name: Wait for WordPress to be available
+        run: |
+          echo "Waiting for WordPress to be ready..."
+          sleep 60  # Wait for 60 seconds for WordPress to initialize
+
+      # Step 6: Check if WordPress is running
       - name: Check if WordPress is running
         run: |
-          curl -s http://127.0.0.1:8080 | grep "WordPress"
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080)
+          if [ "$response" -eq 200 ]; then
+            echo "WordPress is up and running!"
+          else
+            echo "WordPress failed to start. HTTP status code: $response"
+            exit 1
+          fi
 
-      # Step 5: Clean up Docker containers after test
+      # Step 7: Clean up Docker containers
       - name: Clean up Docker containers
         run: |
-          docker rm -f mysql-container wordpress-container
+          docker-compose down
