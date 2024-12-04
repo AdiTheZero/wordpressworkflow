@@ -45,15 +45,8 @@ jobs:
                 MYSQL_DATABASE: wordpress
                 MYSQL_USER: root
                 MYSQL_PASSWORD: root_password
-              volumes:
-                - mysql_data:/var/lib/mysql
               ports:
-               - "3306:3306"
-              volumes:
-                - mysql_data:/var/lib/mysql
-                
-          volumes:
-            mysql_data: {}' > docker-compose.yml
+                - "3306:3306"' > docker-compose.yml
 
       # Step 4: Start the containers using Docker Compose
       - name: Start WordPress and MySQL containers
