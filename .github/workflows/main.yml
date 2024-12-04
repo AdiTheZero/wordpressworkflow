@@ -1,7 +1,10 @@
-name: Simple WordPress and MySQL Setup
+name: WordPress and MySQL Setup
 
 on:
   push:
+    branches:
+      - main
+  pull_request:
     branches:
       - main
 
@@ -14,52 +17,51 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Set up MySQL and WordPress using Docker
+      # Step 2: Set up MySQL and WordPress Docker containers
       - name: Set up MySQL and WordPress Docker containers
         run: |
-          # Pull MySQL and WordPress Docker images
+          # Pull official MySQL and WordPress Docker images
           docker pull mysql:8.0
           docker pull wordpress:latest
 
-          # Start MySQL container
+          # Run MySQL container with environment variables for root password
           docker run --name mysql-container -e MYSQL_ROOT_PASSWORD=root_password -d mysql:8.0
 
-          # Start WordPress container, linking to MySQL
-          docker run --name wordpress-container --link mysql-container:mysql -e WORDPRESS_DB_HOST=mysql-container:3306 -e WORDPRESS_DB_NAME=wordpress -e WORDPRESS_DB_USER=root -e WORDPRESS_DB_PASSWORD=root_password -p 8080:80 -d wordpress:latest
+          # Run WordPress container, linking to the MySQL container
+          docker run --name wordpress-container --link mysql-container:mysql -e WORDPRESS_DB_HOST=mysql:3306 -e WORDPRESS_DB_NAME=wordpress -e WORDPRESS_DB_USER=root -e WORDPRESS_DB_PASSWORD=root_password -p 8080:80 -d wordpress:latest
 
-          # Wait for MySQL and WordPress to be ready
-          sleep 30
+          # Wait for MySQL and WordPress to be ready (give it some time to initialize)
+          sleep 60
 
-      # Step 3: Verify MySQL is running
-      - name: Verify MySQL is running
-        run: |
-          docker exec mysql-container mysqladmin -u root -proot_password ping
-
-      # Step 4: Verify WordPress is running
+      # Step 3: Verify WordPress is up and running
       - name: Verify WordPress is running
         run: |
-          curl --fail http://localhost:8080 | grep "WordPress"
-          
-      # Step 5: Show databases in MySQL
-      - name: Show databases
-        run: |
-          docker exec mysql-container mysql -u root -proot_password -e "SHOW DATABASES;"
+          echo "Waiting for WordPress to start..."
+          sleep 60  # Increased sleep time to allow WordPress to initialize
+          curl -v --fail http://localhost:8080 | grep "WordPress"
+          if [ $? -eq 0 ]; then
+            echo "WordPress is up and running!"
+          else
+            echo "WordPress setup failed!" && exit 1
 
-      # Step 6: Create a database and table, and insert data
-      - name: Create database and insert data
+      # Step 4: Create MySQL database and table
+      - name: Create Database and Insert Data
         run: |
+          # Create database and table in MySQL container
           docker exec -i mysql-container mysql -u root -proot_password -e "CREATE DATABASE IF NOT EXISTS test_db;"
           docker exec -i mysql-container mysql -u root -proot_password -e "CREATE TABLE IF NOT EXISTS test_db.users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), email VARCHAR(255));"
           docker exec -i mysql-container mysql -u root -proot_password -e "INSERT INTO test_db.users (name, email) VALUES ('John Doe', 'john@example.com');"
           docker exec -i mysql-container mysql -u root -proot_password -e "INSERT INTO test_db.users (name, email) VALUES ('Jane Smith', 'jane@example.com');"
 
-      # Step 7: Generate and Upload MySQL Report
-      - name: Generate and Upload MySQL Report
+      # Step 5: Show Databases and Generate Report
+      - name: Show Databases and Generate Report
         run: |
+          # Show databases and generate report from MySQL container
+          docker exec -i mysql-container mysql -u root -proot_password -e "SHOW DATABASES;"
           docker exec -i mysql-container mysql -u root -proot_password -e "SELECT * FROM test_db.users;" > report.txt
-          echo "MySQL Report" > report.txt
-          
-      - name: Upload MySQL Report as Artifact
+
+      # Step 6: Upload the Report as Artifact
+      - name: Upload MySQL Report
         uses: actions/upload-artifact@v3
         with:
           name: mysql-report
