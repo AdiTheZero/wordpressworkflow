@@ -1,10 +1,7 @@
-name: WordPress and MySQL Setup
+name: MySQL and WordPress Docker Setup
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
     branches:
       - main
 
@@ -13,56 +10,59 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the code
+      # Step 1: Checkout the code (optional)
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Set up MySQL and WordPress Docker containers
-      - name: Set up MySQL and WordPress Docker containers
+      # Step 2: Set up MySQL Docker container
+      - name: Set up MySQL Docker container
         run: |
-          # Pull official MySQL and WordPress Docker images
+          # Pull the official MySQL Docker image
           docker pull mysql:8.0
-          docker pull wordpress:latest
 
           # Run MySQL container with environment variables for root password
           docker run --name mysql-container -e MYSQL_ROOT_PASSWORD=root_password -d mysql:8.0
 
-          # Run WordPress container, linking to the MySQL container
+          # Wait for MySQL to be ready (give it some time to initialize)
+          sleep 30
+
+      # Step 3: Set up WordPress Docker container
+      - name: Set up WordPress Docker container
+        run: |
+          # Pull the official WordPress Docker image
+          docker pull wordpress:latest
+
+          # Run WordPress container, linking it to MySQL container
           docker run --name wordpress-container --link mysql-container:mysql -e WORDPRESS_DB_HOST=mysql:3306 -e WORDPRESS_DB_NAME=wordpress -e WORDPRESS_DB_USER=root -e WORDPRESS_DB_PASSWORD=root_password -p 8080:80 -d wordpress:latest
 
-          # Wait for MySQL and WordPress to be ready (give it some time to initialize)
-          sleep 60
+          # Wait for WordPress to be ready (give it some time to initialize)
+          sleep 90
 
-      # Step 3: Verify WordPress is up and running
+      # Step 4: Verify WordPress is running
       - name: Verify WordPress is running
         run: |
           echo "Waiting for WordPress to start..."
-          sleep 60  # Increased sleep time to allow WordPress to initialize
-          curl -v --fail http://localhost:8080 | grep "WordPress"
-          if [ $? -eq 0 ]; then
-            echo "WordPress is up and running!"
-          else
-            echo "WordPress setup failed!" && exit 1
+          for i in {1..10}; do
+            if curl --fail http://localhost:8080 | grep -q "WordPress"; then
+              echo "WordPress is ready!"
+              exit 0
+            else
+              echo "Retrying WordPress setup..."
+              sleep 10
+            fi
+          done
+          echo "WordPress setup failed!" && exit 1
 
-      # Step 4: Create MySQL database and table
-      - name: Create Database and Insert Data
-        run: |
-          # Create database and table in MySQL container
-          docker exec -i mysql-container mysql -u root -proot_password -e "CREATE DATABASE IF NOT EXISTS test_db;"
-          docker exec -i mysql-container mysql -u root -proot_password -e "CREATE TABLE IF NOT EXISTS test_db.users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), email VARCHAR(255));"
-          docker exec -i mysql-container mysql -u root -proot_password -e "INSERT INTO test_db.users (name, email) VALUES ('John Doe', 'john@example.com');"
-          docker exec -i mysql-container mysql -u root -proot_password -e "INSERT INTO test_db.users (name, email) VALUES ('Jane Smith', 'jane@example.com');"
-
-      # Step 5: Show Databases and Generate Report
+      # Step 5: Show MySQL Databases and Generate Report
       - name: Show Databases and Generate Report
         run: |
-          # Show databases and generate report from MySQL container
-          docker exec -i mysql-container mysql -u root -proot_password -e "SHOW DATABASES;"
-          docker exec -i mysql-container mysql -u root -proot_password -e "SELECT * FROM test_db.users;" > report.txt
+          # Show MySQL databases and generate a report
+          docker exec -i mysql-container mysql -u root -proot_password -e "SHOW DATABASES;" > databases_report.txt
+          docker exec -i mysql-container mysql -u root -proot_password -e "SELECT * FROM test_db.users;" >> databases_report.txt
 
-      # Step 6: Upload the Report as Artifact
+      # Step 6: Upload MySQL Report
       - name: Upload MySQL Report
         uses: actions/upload-artifact@v3
         with:
           name: mysql-report
-          path: report.txt
+          path: databases_report.txt
