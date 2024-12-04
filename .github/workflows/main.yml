@@ -29,7 +29,7 @@ jobs:
             wordpress:
               image: wordpress:latest
               ports:
-                - "8080:80"
+                - "80:80"
               environment:
                 WORDPRESS_DB_HOST: mysql:3306
                 WORDPRESS_DB_NAME: wordpress
@@ -42,8 +42,16 @@ jobs:
               image: mysql:8.0
               environment:
                 MYSQL_ROOT_PASSWORD: root_password
+                MYSQL_DATABASE: wordpress
+                MYSQL_USER: root
+                MYSQL_PASSWORD: root_password
               volumes:
                 - mysql_data:/var/lib/mysql
+              ports:
+               - "3306:3306"
+              volumes:
+                - mysql_data:/var/lib/mysql
+                
           volumes:
             mysql_data: {}' > docker-compose.yml
 
@@ -61,7 +69,7 @@ jobs:
       # Step 6: Check if WordPress is running
       - name: Check if WordPress is running
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080)
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:80)
           if [ "$response" -eq 200 ]; then
             echo "WordPress is up and running!"
           else
