@@ -10,39 +10,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Install Docker
-      - name: Install Docker
+      # Step 1: Set up Docker environment using the official GitHub Action
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Step 2: Run MySQL and WordPress containers
+      - name: Set up MySQL and WordPress containers with Docker
         run: |
-          sudo apt-get update
-          sudo apt-get install -y docker.io
-          sudo systemctl enable docker
-          sudo systemctl start docker
+          # Pull MySQL and WordPress images
+          docker pull mysql:8.0
+          docker pull wordpress:latest
 
-      # Step 2: Run MySQL and WordPress Containers
-      - name: Set up MySQL and WordPress with Docker
-        run: |
-          # Pull the MySQL and WordPress Docker images
-          sudo docker pull mysql:8.0
-          sudo docker pull wordpress:latest
+          # Run MySQL container with root password
+          docker run --name mysql-container -e MYSQL_ROOT_PASSWORD=root_password -d mysql:8.0
 
-          # Run MySQL container with a root password
-          sudo docker run --name mysql-container -e MYSQL_ROOT_PASSWORD=root_password -d mysql:8.0
-
-          # Run WordPress container and link to MySQL
-          sudo docker run --name wordpress-container --link mysql-container:mysql -p 8080:80 -e WORDPRESS_DB_HOST=mysql:3306 -e WORDPRESS_DB_NAME=wordpress -e WORDPRESS_DB_USER=root -e WORDPRESS_DB_PASSWORD=root_password -d wordpress:latest
+          # Run WordPress container, linked to the MySQL container
+          docker run --name wordpress-container --link mysql-container:mysql -p 8080:80 -e WORDPRESS_DB_HOST=mysql:3306 -e WORDPRESS_DB_NAME=wordpress -e WORDPRESS_DB_USER=root -e WORDPRESS_DB_PASSWORD=root_password -d wordpress:latest
 
       # Step 3: Wait for WordPress to be ready
       - name: Wait for WordPress to start
         run: |
           echo "Waiting for WordPress to start..."
-          sleep 30  # Waiting time for WordPress to initialize
+          sleep 30  # Give time for WordPress to initialize
 
       # Step 4: Test if WordPress is accessible
-      - name: Check if WordPress is ready
+      - name: Check if WordPress is running
         run: |
           curl -s http://127.0.0.1:8080 | grep "WordPress"
 
-      # Step 5: Clean up Docker containers
+      # Step 5: Clean up Docker containers after test
       - name: Clean up Docker containers
         run: |
-          sudo docker rm -f mysql-container wordpress-container
+          docker rm -f mysql-container wordpress-container
