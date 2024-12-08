@@ -1,7 +1,7 @@
 describe('template spec', () => {
   it('passes', () => {
     cy.visit('http://localhost')
-    cy.wait(2000)
+    
 
 
     /* ==== Generated with Cypress Studio ==== */
@@ -17,6 +17,7 @@ describe('template spec', () => {
     cy.get('#admin_email').type('Adityakumarspn555@gmail.com');
     cy.get('#blog_public').check();
     cy.get('#submit').click();
+    cy.wait(2000)
     cy.get('a').click();
     cy.get('#user_login').clear();
     cy.get('#user_login').type('adityakumarspn');
