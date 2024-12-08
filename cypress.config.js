@@ -6,12 +6,14 @@ module.exports = defineConfig({
     reporter: 'mochawesome',
     reporterOptions: {
       reportDir: 'cypress/reports', // Directory for reports
-      overwrite: false, // Keep old reports
+      overwrite: true, // Keep old reports
       html: true, // Generate HTML reports
       json: true, // Generate JSON reports
+      timestamp: "mmddyyyy_HHMMss"
     },
     setupNodeEvents(on, config) {
       // Implement node event listeners here
+      //  require('cypress-mochawesome-reporter')(on);
     },
   },
 });
