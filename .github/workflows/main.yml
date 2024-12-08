@@ -38,7 +38,7 @@ jobs:
         run: |
           response=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:80)
           echo "WordPress is up and running!"
-          
+
       # Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -58,3 +58,12 @@ jobs:
       - name: Clean up Docker containers
         run: |
           docker-compose down
+
+      # Upload Cypress Mochawesome report as an artifact
+      - name: Upload Cypress Mochawesome Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: mochawesome-report
+          path: |
+            cypress/reports
+            cypress/screenshots
